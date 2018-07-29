@@ -9,6 +9,7 @@ import datetime
 import numpy as np
 import pandas as pd
 import sklearn
+import tushare as ts
 
 #from pandas.io.data import DataReader
 from pandas_datareader import data, wb  
@@ -23,6 +24,9 @@ from sklearn.metrics import confusion_matrix
 from sklearn.svm import LinearSVC, SVC
 
 
+def get_data():
+    return ts.get_hist_data('300104')
+
 def create_lagged_series(symbol, start_date, end_date, lags=5):
     """
     This creates a pandas DataFrame that stores the 
@@ -34,21 +38,19 @@ def create_lagged_series(symbol, start_date, end_date, lags=5):
     """
 
     # Obtain stock information from Yahoo Finance
-    ts = data.DataReader(
-    	symbol, "yahoo", 
-    	start_date-datetime.timedelta(days=365), 
-    	end_date
-    )
+    ts = get_data()
+    ts =ts.sort_index(axis = 0,ascending = True) 
     print(ts)
-    print(type(ts['Adj Close']))
+    print(type(ts))
+    print(type(ts['close']))
    # Create the new lagged DataFrame
     tslag = pd.DataFrame(index=ts.index)
-    tslag["Today"] = ts["Adj Close"]
-    tslag["Volume"] = ts["Volume"]
+    tslag["Today"] = ts["close"]
+    tslag["Volume"] = ts["volume"]
     
     # Create the shifted lag series of prior trading period close values
     for i in range(0, lags):
-        tslag["Lag%s" % str(i+1)] = ts["Adj Close"].shift(i+1)
+        tslag["Lag%s" % str(i+1)] = ts["close"].shift(i+1)
     print(tslag)
     # Create the returns DataFrame
     tsret = pd.DataFrame(index=tslag.index)
@@ -68,7 +70,8 @@ def create_lagged_series(symbol, start_date, end_date, lags=5):
     print(tsret)
     # Create the "Direction" column (+1 or -1) indicating an up/down day
     tsret["Direction"] = np.sign(tsret["Today"])
-    tsret = tsret[tsret.index >= start_date]
+    print(tsret.index)
+    #tsret = tsret[tsret.index >= start_date]
 
     return tsret
 
@@ -76,8 +79,8 @@ def create_lagged_series(symbol, start_date, end_date, lags=5):
 if __name__ == "__main__":
     # Create a lagged series of the S&P500 US stock market index
     snpret = create_lagged_series(
-    	"^GSPC", datetime.datetime(2001,1,10), 
-    	datetime.datetime(2005,12,31), lags=5
+    	"^GSPC", datetime.datetime(2015,9,10), 
+    	datetime.datetime(2017,12,31), lags=5
     )
 
     # Use the prior two days of returns as predictor 
@@ -88,14 +91,22 @@ if __name__ == "__main__":
     print(X)
     print(y)
     # The test data is split into two parts: Before and after 1st Jan 2005.
-    start_test = datetime.datetime(2005,1,1)
-
+    start_test = datetime.datetime(2016,1,1)
+    start_train = u'2015-08-06'
+    print(start_test)
+    start_test = u'2017-08-29'    
+    end_test = u'2018-07-24'
     # Create training and test sets
     X_train = X[X.index < start_test]
-    X_test = X[X.index >= start_test]
+    X_train = X_train[X_train.index >= start_train]
+    X_test = X[X.index >= start_test ]
+    #X_test = X_test[X_test.index <= end_test]
     y_train = y[y.index < start_test]
+    y_train = y_train[y_train.index >= start_train]
     y_test = y[y.index >= start_test]
-   
+    #y_test = y_test[y_test.index <= end_test]    
+    print(X_test) 
+    print(y_test)  
     # Create the (parametrised) models
     print("Hit Rates/Confusion Matrices:\n")
     models = [("LR", LogisticRegression()), 
@@ -130,17 +141,16 @@ if __name__ == "__main__":
         print("%s\n" % confusion_matrix(pred, y_test))
 
 
-    start_date = datetime.datetime(2001,1,10)
-    end_date = datetime.datetime(2005,12,31)
-    symbol =  "^GSPC"
-    ts = data.DataReader(
-    	symbol, "yahoo", 
-    	start_date-datetime.timedelta(days=365), 
-    	end_date
-    )
-
-
-
-    ts['Adj Close'].plot(legend=True, figsize=(10,4))
+    #start_date = datetime.datetime(2001,1,10)
+    #end_date = datetime.datetime(2005,12,31)
+    #symbol =  "^GSPC"
+    #ts = data.DataReader(
+    #	symbol, "yahoo", 
+    #	start_date-datetime.timedelta(days=365), 
+    #	end_date
+    #)
+    ts = get_data()
+    ts =ts.sort_index(axis = 0,ascending = True) 
+    ts['close'].plot(legend=True, figsize=(10,4))
     plt.show()
  
