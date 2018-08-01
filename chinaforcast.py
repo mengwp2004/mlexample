@@ -26,8 +26,7 @@ from sklearn.svm import LinearSVC, SVC
 
 
 def get_data(label):
-    
-       return ts.get_hist_data(label)
+    return ts.get_hist_data(label)
 
 def get_data_list(datalist):
    
@@ -69,13 +68,16 @@ def create_lagged_series(datalist, start_date, end_date, lags=5):
     
     tsrets =[]   
     # Obtain stock information from Yahoo Finance
-    #tss = get_data_list(datalist)
-    tss = get_data_from_db()
+    if datalist is None:
+      tss = get_data_from_db()
+    else:
+      tss = get_data_list(datalist)
+    
     for ts in tss:
       ts =ts.sort_index(axis = 0,ascending = True) 
-      print(ts)
-      print(type(ts))
-      print(type(ts['close']))
+      #print(ts)
+      ts.index = ts["date"]
+      #print(ts)
       # Create the new lagged DataFrame
       tslag = pd.DataFrame(index=ts.index)
       tslag["Today"] = ts["close"]
@@ -84,7 +86,7 @@ def create_lagged_series(datalist, start_date, end_date, lags=5):
       # Create the shifted lag series of prior trading period close values
       for i in range(0, lags):
         tslag["Lag%s" % str(i+1)] = ts["close"].shift(i+1)
-      print(tslag)
+      #print(tslag)
       # Create the returns DataFrame
       tsret = pd.DataFrame(index=tslag.index)
       tsret["Volume"] = tslag["Volume"]
@@ -100,10 +102,10 @@ def create_lagged_series(datalist, start_date, end_date, lags=5):
       for i in range(0, lags):
         tsret["Lag%s" % str(i+1)] = \
         tslag["Lag%s" % str(i+1)].pct_change()*100.0
-      print(tsret)
+      #print(tsret)
       # Create the "Direction" column (+1 or -1) indicating an up/down day
       tsret["Direction"] = np.sign(tsret["Today"])
-      print(tsret.index)
+      #print(tsret.index)
       #tsret = tsret[tsret.index >= start_date]
       tsrets.append(tsret)
     return tsrets
@@ -139,7 +141,7 @@ def get_data_set_from_db(snprets,start_train,start_test):
          X_tests =pd.concat([X_tests,X_test])
          y_tests =pd.concat([y_tests,y_test])
 
-      print("type(y_train) %s " % (type(y_train)))
+      #print("type(y_train) %s " % (type(y_train)))
        
     #X_trains = X_trains.reset_index(drop = True)
     nanList = np.where(np.isnan(X_trains))[0]
@@ -156,6 +158,9 @@ def get_data_set(snprets,start_train,start_test):
     #y_tests = pd.DataFrame()
     i =0 
     for snpret in snprets:
+      nanList = snpret.index[np.where(np.isnan(snpret))[0]]
+      if len(nanList) > 0:
+          snpret = snpret.drop(nanList)
       X = snpret[["Lag1","Lag2"]]
       y = snpret["Direction"]
 
@@ -179,13 +184,18 @@ def get_data_set(snprets,start_train,start_test):
          X_tests =pd.concat([X_tests,X_test])
          y_tests =pd.concat([y_tests,y_test])
 
-      print("type(y_train) %s " % (type(y_train)))
+      #print("type(y_train) %s " % (type(y_train)))
        
     #X_trains = X_trains.reset_index(drop = True)
     nanList = np.where(np.isnan(X_trains))[0]
-    print(len(X_trains))
-    print(nanList)
-
+    nanList1 = np.where(np.isnan(X_tests))[0]
+    print("X trains:")
+    print(X_trains)
+    print("len(trains)=%d,len(nanList)=%d ,len(X_tests)=%d,len(nanList1)=%d,len(y_trains)=%d)" %(len(X_trains),len(nanList),len(X_tests),len(nanList1),len(y_trains)))
+    if len(nanList1) >0 :
+      print("test nan list:")
+      print(nanList1)
+           
     return X_trains,X_tests,y_trains,y_tests 
      
 
@@ -194,23 +204,20 @@ if __name__ == "__main__":
     datalist =['300104','000001']
     name = "./code.txt"
     #codelist = get_code(name) 
-    #print(codelist)
     
     # Create a lagged series of the S&P500 US stock market index
     snprets = create_lagged_series(
-    	datalist, datetime.datetime(2015,9,10), 
+    	None, datetime.datetime(2015,9,10), 
     	datetime.datetime(2017,12,31), lags=5
     )
-    label = '300104'
     # Use the prior two days of returns as predictor 
     # values, with direction as the response
     start_test = datetime.datetime(2016,1,1)
     start_train = u'2015-08-06'
-    print(start_test)
     start_test = u'2017-08-29'    
     end_test = u'2018-07-24'
 
-    X_train,X_test,y_train,y_test = get_data_set_from_db(snprets,start_train,start_test)
+    X_train,X_test,y_train,y_test = get_data_set(snprets,start_train,start_test)
 
     # Create the (parametrised) models
     print("Hit Rates/Confusion Matrices:\n")

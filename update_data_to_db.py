@@ -51,7 +51,6 @@ def get_data_from_db(filename):
 def read_codes_data(codelist,engine):
     
     i = 0
-   
     for code in codelist:
        df = read_code_data(code,engine)
        if df is None:
@@ -89,10 +88,10 @@ def get_data_list_from_db(filename):
          continue
        dfs.append(df)
        i = i+1
-       print(i)
+       #print(i)
        if (i >= 10):
          break
-    print(dfs)
+    #print(dfs)
     print("len %d" %(len(dfs)))
       
     return dfs
